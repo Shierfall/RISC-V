@@ -4,8 +4,8 @@
 #include <string.h>
 
 #define NUM_REGISTERS 32
-#define MEMORY_SIZE (1024 * 1024)
-
+#define MEMORY_SIZE (1024 * 1024) // 1 MB memory
+// Defining Opcodes
 #define OPCODE_LUI       0x37
 #define OPCODE_AUIPC     0x17
 #define OPCODE_JAL       0x6F
@@ -16,24 +16,24 @@
 #define OPCODE_OP_IMM    0x13
 #define OPCODE_OP        0x33
 #define OPCODE_SYSTEM    0x73
-
+// BRANCH
 #define FUNCT3_BEQ       0x0
 #define FUNCT3_BNE       0x1
 #define FUNCT3_BLT       0x4
 #define FUNCT3_BGE       0x5
 #define FUNCT3_BLTU      0x6
 #define FUNCT3_BGEU      0x7
-
+// LOAD
 #define FUNCT3_LB        0x0
 #define FUNCT3_LH        0x1
 #define FUNCT3_LW        0x2
 #define FUNCT3_LBU       0x4
 #define FUNCT3_LHU       0x5
-
+// STORE
 #define FUNCT3_SB        0x0
 #define FUNCT3_SH        0x1
 #define FUNCT3_SW        0x2
-
+// IMMEDIATE_OPS
 #define FUNCT3_ADDI      0x0
 #define FUNCT3_SLLI      0x1
 #define FUNCT3_SLTI      0x2
@@ -42,7 +42,7 @@
 #define FUNCT3_SRLI_SRAI 0x5
 #define FUNCT3_ORI       0x6
 #define FUNCT3_ANDI      0x7
-
+// REGULAR_OPS
 #define FUNCT3_ADD_SUB   0x0
 #define FUNCT3_SLL       0x1
 #define FUNCT3_SLT       0x2
@@ -51,20 +51,20 @@
 #define FUNCT3_SRL_SRA   0x5
 #define FUNCT3_OR        0x6
 #define FUNCT3_AND       0x7
-
+// R TYPE_OPS
 #define FUNCT7_ADD       0x00
 #define FUNCT7_SUB       0x20
 #define FUNCT7_SLLI      0x00
 #define FUNCT7_SRLI      0x00
 #define FUNCT7_SRAI      0x20
-
+// SYSTEM
 #define SYSTEM_ECALL     0x000
 #define SYSTEM_EBREAK    0x001
-
+// Setting up registers and the memory array 
 int32_t registers_array[NUM_REGISTERS];
 uint32_t pc = 0;
 uint8_t memory[MEMORY_SIZE];
-
+// Defining the functions for getting the opcode, rd, funct3, rs1, rs2, funct7 to decode the instruction
 #define GET_OPCODE(instr)          (instr & 0x7F)
 #define GET_RD(instr)              ((instr >> 7) & 0x1F)
 #define GET_FUNCT3(instr)          ((instr >> 12) & 0x7)
@@ -72,10 +72,13 @@ uint8_t memory[MEMORY_SIZE];
 #define GET_RS2(instr)             ((instr >> 20) & 0x1F)
 #define GET_FUNCT7(instr)          ((instr >> 25) & 0x7F)
 
+// Function to sign extend the value
+
 int32_t sign_extend(int32_t value, int bits) {
     int32_t mask = 1 << (bits - 1);
     return (value ^ mask) - mask;
 }
+// Function to initialize the registers and memory
 
 void initialize() {
     memset(registers_array, 0, sizeof(registers_array));
@@ -83,7 +86,7 @@ void initialize() {
     pc = 0;
     registers_array[2] = MEMORY_SIZE;
 }
-
+// Function to load the memory from the binary file
 void load_memory(const char *filename) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
@@ -93,7 +96,7 @@ void load_memory(const char *filename) {
 
     size_t bytes_read = fread(memory, 1, MEMORY_SIZE, file);
     fclose(file);
-
+// Checking if the binary file is either too large or not a multiple of 4 bytes
     if (bytes_read > MEMORY_SIZE) {
         printf("Binary file is too large to fit in memory.\n");
         exit(EXIT_FAILURE);
@@ -103,6 +106,7 @@ void load_memory(const char *filename) {
         printf("Warning: File size is not a multiple of 4 bytes.\n");
     }
 }
+// Function to print the registers
 
 void print_registers() {
     printf("\n--- Register Contents ---\n");
@@ -111,9 +115,9 @@ void print_registers() {
     }
     printf("--------------------------\n");
 }
-
+// FunCtion to dump the current registers into a binary file
 void dump_registers_binary() {
-    FILE *file = fopen("register_dump.bin", "wb");
+    FILE *file = fopen("register_dump.bin","wb");
     if (!file) {
         perror("Failed to open register dump file");
         exit(EXIT_FAILURE);
@@ -121,18 +125,19 @@ void dump_registers_binary() {
     fwrite(registers_array, sizeof(int32_t), NUM_REGISTERS, file);
     fclose(file);
 }
-
+// Function to execute  R type instructions
 void execute_r_type(uint32_t funct7, uint32_t funct3, uint32_t rd, uint32_t rs1, uint32_t rs2) {
     int32_t operand1 = registers_array[rs1];
     int32_t operand2 = registers_array[rs2];
     int32_t result = 0;
-
+// Switch case to check the funct3 and funct7 values and perform the operation accordingly
+// The result is stored in the rd register and the value of (WE ALWAYS KEEP THE VALUE OF REGISTER x0 AS 0)
     switch (funct3) {
         case FUNCT3_ADD_SUB:
-            if (funct7 == FUNCT7_ADD) {
+            if (funct7 ==FUNCT7_ADD) {
                 result = operand1 + operand2;
             } else if (funct7 == FUNCT7_SUB) {
-                result = operand1 - operand2;
+                result = operand1-operand2;
             } else {
                 printf("Unsupported R-type funct7: 0x%X\n", funct7);
                 exit(EXIT_FAILURE);
@@ -175,10 +180,11 @@ void execute_r_type(uint32_t funct7, uint32_t funct3, uint32_t rd, uint32_t rs1,
             exit(EXIT_FAILURE);
     }
 
-    registers_array[rd] = result;
-    registers_array[0] = 0;
+    registers_array[rd] = result; // Store the result in the rd register
+    registers_array[0] = 0; // x0 is hardwired to 0
 }
 
+// Function to execute I type instructions. Same approach as R type instructions
 void execute_i_type(uint32_t funct7, uint32_t funct3, uint32_t rd, uint32_t rs1, int32_t imm) {
     int32_t operand1 = registers_array[rs1];
     int32_t result = 0;
@@ -262,6 +268,8 @@ void execute_s_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
         memory[address + i] = (value >> (8 * i)) & 0xFF;
     }
 }
+// Function to execute B type instructions
+// The funct3 value is checked and the branch is taken according to the instruction
 
 void execute_b_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
     int32_t operand1 = registers_array[rs1];
@@ -291,14 +299,14 @@ void execute_b_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
             printf("Unsupported B-type funct3: 0x%X\n", funct3);
             exit(EXIT_FAILURE);
     }
-
+// If the branch is taken, the program counter has to be updated in accordance to whether or not the branch is taken
     if (branch) {
         pc += imm;
     } else {
         pc += 4;
     }
 }
-
+// Function to execute U type instructions
 void execute_u_type(uint32_t opcode, uint32_t rd, int32_t imm) {
     switch (opcode) {
         case OPCODE_LUI:
@@ -314,19 +322,19 @@ void execute_u_type(uint32_t opcode, uint32_t rd, int32_t imm) {
 
     registers_array[0] = 0;
 }
-
+// Function to execute J type instructions
 void execute_j_type(uint32_t rd, int32_t imm) {
     registers_array[rd] = pc + 4;
     pc += imm;
-}
-
+} // jalr is used to jump to a register value
 void execute_jalr(uint32_t rd, uint32_t rs1, int32_t imm) {
     int32_t target = registers_array[rs1] + imm;
     target &= ~1;
     registers_array[rd] = pc + 4;
     pc = target;
 }
-
+// Function to handle system calls
+// This function is used to handle the system calls like ECALL and EBREAK which are used to exit the program
 void handle_system_call(uint32_t instruction) {
     uint32_t funct = (instruction >> 20) & 0xFFF;
 
@@ -348,7 +356,7 @@ void handle_system_call(uint32_t instruction) {
             exit(EXIT_FAILURE);
     }
 }
-
+// Function to execute a single specific instruction
 void execute_instruction(uint32_t instruction) {
     uint32_t opcode = GET_OPCODE(instruction);
     uint32_t rd = GET_RD(instruction);
@@ -357,7 +365,7 @@ void execute_instruction(uint32_t instruction) {
     uint32_t rs2 = GET_RS2(instruction);
     uint32_t funct7 = GET_FUNCT7(instruction);
     int32_t imm = 0;
-
+// Bunch of switch cases to check the opcode and perform the operation accordingly
     switch (opcode) {
         case OPCODE_LUI:
         case OPCODE_AUIPC: {
@@ -486,9 +494,9 @@ void execute_instruction(uint32_t instruction) {
             exit(EXIT_FAILURE);
     }
 
-    registers_array[0] = 0;
+    registers_array[0] = 0; // let x0 be hardwired to 0
 }
-
+// Function that makes the program run in a loop until the program counter reaches the end of the memory
 void run() {
     while (pc + 3 < MEMORY_SIZE) {
         uint32_t instruction = 0;
@@ -503,7 +511,8 @@ void run() {
 
     printf("Program execution completed.\n");
 }
-
+// FINALLY THE MAIN FUNCTION 
+// The main function takes the binary file as an argument and runs the program
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         printf("Usage: %s <binary_file>\n", argv[0]);
