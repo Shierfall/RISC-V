@@ -64,6 +64,9 @@
 int32_t registers_array[NUM_REGISTERS];
 uint32_t pc = 0;
 uint8_t memory[MEMORY_SIZE];
+// Toggle to allow misaligned memory access
+int allow_misaligned = 1; // Set to 1 to allow, 0 to enforce alignment
+
 // Defining the functions for getting the opcode, rd, funct3, rs1, rs2, funct7 to decode the instruction
 #define GET_OPCODE(instr)          (instr & 0x7F)
 #define GET_RD(instr)              ((instr >> 7) & 0x1F)
@@ -84,7 +87,7 @@ void initialize() {
     memset(registers_array, 0, sizeof(registers_array));
     memset(memory, 0, sizeof(memory));
     pc = 0;
-    registers_array[2] = MEMORY_SIZE;
+    registers_array[2] = 0; // sp starts at 0 instead of the end of memory as before
 }
 // Function to load the memory from the binary file
 void load_memory(const char *filename) {
@@ -115,9 +118,9 @@ void print_registers() {
     }
     printf("--------------------------\n");
 }
-// FunCtion to dump the current registers into a binary file
-void dump_registers_binary() {
-    FILE *file = fopen("register_dump.bin","wb");
+// FunCtion to dump the current registers into a res binary file
+void dump_registers_res() {
+    FILE *file = fopen("register_dump.res","wb");
     if (!file) {
         perror("Failed to open register dump file");
         exit(EXIT_FAILURE);
@@ -230,10 +233,12 @@ void execute_i_type(uint32_t funct7, uint32_t funct3, uint32_t rd, uint32_t rs1,
             exit(EXIT_FAILURE);
     }
 
-    registers_array[rd] = result;
-    registers_array[0] = 0;
+    if (rd != 0) { // if rd is x0 we don't write to it
+        registers_array[rd] = result;
+    }
+    registers_array[0] = 0; // we keep this line as an extra precaution (but it is not necessary)
 }
-
+//S type instructions
 void execute_s_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
     int32_t address = registers_array[rs1] + imm;
     int32_t value = registers_array[rs2];
@@ -259,11 +264,15 @@ void execute_s_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
         exit(EXIT_FAILURE);
     }
 
-    if (address % access_size != 0) {
-        printf("Misaligned memory access at address 0x%X\n", address);
-        exit(EXIT_FAILURE);
+    // Depending on allow_misaligned, we may need to check for misaligned memory access (testing requires allow_misaligned=1)
+    if (!allow_misaligned) {
+        if (address % access_size != 0) {
+            printf("Misaligned memory access at address 0x%X\n", address);
+            exit(EXIT_FAILURE);
+        }
     }
 
+    //byte by byte data writing
     for (int i = 0; i < access_size; i++) {
         memory[address + i] = (value >> (8 * i)) & 0xFF;
     }
@@ -310,27 +319,34 @@ void execute_b_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
 void execute_u_type(uint32_t opcode, uint32_t rd, int32_t imm) {
     switch (opcode) {
         case OPCODE_LUI:
-            registers_array[rd] = imm;
+            if (rd != 0) {
+                registers_array[rd] = imm;
+            }
             break;
         case OPCODE_AUIPC:
-            registers_array[rd] = pc + imm;
+            if (rd != 0) {
+                registers_array[rd] = pc + imm;
+            } // ensuring again that x0 is not written to 
             break;
         default:
             printf("Unsupported U-type opcode: 0x%X\n", opcode);
             exit(EXIT_FAILURE);
     }
-
-    registers_array[0] = 0;
+    registers_array[0] = 0; // Still unnecessary but we keep it for consistency
 }
 // Function to execute J type instructions
 void execute_j_type(uint32_t rd, int32_t imm) {
-    registers_array[rd] = pc + 4;
+    if (rd != 0) {
+        registers_array[rd] = pc + 4;
+    }
     pc += imm;
 } // jalr is used to jump to a register value
 void execute_jalr(uint32_t rd, uint32_t rs1, int32_t imm) {
     int32_t target = registers_array[rs1] + imm;
     target &= ~1;
-    registers_array[rd] = pc + 4;
+    if (rd != 0) {
+        registers_array[rd] = pc + 4;
+    }
     pc = target;
 }
 // Function to handle system calls
@@ -342,13 +358,13 @@ void handle_system_call(uint32_t instruction) {
         case SYSTEM_ECALL:
             printf("ECALL encountered at PC: 0x%08X\n", pc);
             print_registers();
-            dump_registers_binary();
+            dump_registers_res(); // Dump at Ecall instead of at the end of the program
             exit(EXIT_SUCCESS);
             break;
         case SYSTEM_EBREAK:
             printf("EBREAK encountered at PC: 0x%08X\n", pc);
             print_registers();
-            dump_registers_binary();
+            dump_registers_res();
             exit(EXIT_SUCCESS);
             break;
         default:
@@ -356,7 +372,7 @@ void handle_system_call(uint32_t instruction) {
             exit(EXIT_FAILURE);
     }
 }
-// Function to execute a single specific instruction
+// Function to execute a single instruction
 void execute_instruction(uint32_t instruction) {
     uint32_t opcode = GET_OPCODE(instruction);
     uint32_t rd = GET_RD(instruction);
@@ -401,64 +417,56 @@ void execute_instruction(uint32_t instruction) {
             imm = sign_extend((instruction >> 20) & 0xFFF, 12);
             int32_t address = registers_array[rs1] + imm;
             int32_t loaded_value = 0;
-            int access_size = 4;
 
+            if (address < 0 || address >= MEMORY_SIZE) {
+                printf("Memory access out of bounds at address 0x%X\n", address);
+                exit(EXIT_FAILURE);
+            }
             switch (funct3) {
-                case FUNCT3_LB: {
-                    access_size = 1;
-                    if (address < 0 || address >= MEMORY_SIZE) {
-                        printf("Memory access out of bounds at address 0x%X\n", address);
-                        exit(EXIT_FAILURE);
-                    }
+                case FUNCT3_LB:
                     loaded_value = (int8_t)memory[address];
                     break;
-                }
-                case FUNCT3_LH: {
-                    access_size = 2;
-                    if (address < 0 || address + 1 >= MEMORY_SIZE || address % 2 != 0) {
-                        printf("Misaligned or out-of-bounds memory access at address 0x%X\n", address);
-                        exit(EXIT_FAILURE);
+                case FUNCT3_LH:
+                    if (!allow_misaligned) {
+                        if (address % 2 != 0) {
+                            printf("Misaligned memory access at address 0x%X\n", address);
+                            exit(EXIT_FAILURE);
+                        }
                     }
                     loaded_value = (int16_t)(memory[address] | (memory[address + 1] << 8));
                     break;
-                }
-                case FUNCT3_LW: {
-                    access_size = 4;
-                    if (address < 0 || address + 3 >= MEMORY_SIZE || address % 4 != 0) {
-                        printf("Misaligned or out-of-bounds memory access at address 0x%X\n", address);
-                        exit(EXIT_FAILURE);
+                case FUNCT3_LW:
+                    if (!allow_misaligned) {
+                        if (address % 4 != 0) {
+                            printf("Misaligned memory access at address 0x%X\n", address);
+                            exit(EXIT_FAILURE);
+                        }
                     }
                     loaded_value = memory[address] |
                                    (memory[address + 1] << 8) |
                                    (memory[address + 2] << 16) |
                                    (memory[address + 3] << 24);
                     break;
-                }
-                case FUNCT3_LBU: {
-                    access_size = 1;
-                    if (address < 0 || address >= MEMORY_SIZE) {
-                        printf("Memory access out of bounds at address 0x%X\n", address);
-                        exit(EXIT_FAILURE);
-                    }
-                    loaded_value = memory[address];
+                case FUNCT3_LBU:
+                    loaded_value = (uint8_t)memory[address];
                     break;
-                }
-                case FUNCT3_LHU: {
-                    access_size = 2;
-                    if (address < 0 || address + 1 >= MEMORY_SIZE || address % 2 != 0) {
-                        printf("Misaligned or out-of-bounds memory access at address 0x%X\n", address);
-                        exit(EXIT_FAILURE);
+                case FUNCT3_LHU:
+                    if (!allow_misaligned) {
+                        if (address % 2 != 0) {
+                            printf("Misaligned memory access at address 0x%X\n", address);
+                            exit(EXIT_FAILURE);
+                        }
                     }
                     loaded_value = memory[address] | (memory[address + 1] << 8);
                     break;
-                }
                 default:
                     printf("Unsupported LOAD funct3: 0x%X\n", funct3);
                     exit(EXIT_FAILURE);
             }
 
-            registers_array[rd] = loaded_value;
-            registers_array[0] = 0;
+            if (rd != 0) {
+                registers_array[rd] = loaded_value;
+            }
             pc += 4;
             break;
         }
@@ -496,7 +504,7 @@ void execute_instruction(uint32_t instruction) {
 
     registers_array[0] = 0; // let x0 be hardwired to 0
 }
-// Function that makes the program run in a loop until the program counter reaches the end of the memory
+// Run through all of the instructions in the memory
 void run() {
     while (pc + 3 < MEMORY_SIZE) {
         uint32_t instruction = 0;
@@ -511,11 +519,16 @@ void run() {
 
     printf("Program execution completed.\n");
 }
-// FINALLY THE MAIN FUNCTION 
-// The main function takes the binary file as an argument and runs the program
+
+// Main function
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         printf("Usage: %s <binary_file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+//ensuring that dump_registers_res function is called in event of an abnormal termination
+    if (atexit(dump_registers_res) != 0) {
+        fprintf(stderr, "Failed to set exit function.\n");
         return EXIT_FAILURE;
     }
 
@@ -523,7 +536,6 @@ int main(int argc, char *argv[]) {
     load_memory(argv[1]);
     run();
     print_registers();
-    dump_registers_binary();
 
     return EXIT_SUCCESS;
 }
