@@ -118,7 +118,7 @@ void print_registers() {
     }
     printf("--------------------------\n");
 }
-// FunCtion to dump the current registers into a res binary file
+// Function to dump the current registers into a res binary file
 void dump_registers_res() {
     FILE *file = fopen("register_dump.res","wb");
     if (!file) {
@@ -352,13 +352,13 @@ void execute_jalr(uint32_t rd, uint32_t rs1, int32_t imm) {
 // Function to handle system calls
 // This function is used to handle the system calls like ECALL and EBREAK which are used to exit the program
 void handle_system_call(uint32_t instruction) {
-    uint32_t funct = (instruction >> 20) & 0xFFF;
+    uint32_t funct = (instruction >>20) & 0xFFF;
 
     switch (funct) {
         case SYSTEM_ECALL:
             printf("ECALL encountered at PC: 0x%08X\n", pc);
             print_registers();
-            dump_registers_res(); // Dump at Ecall instead of at the end of the program
+            dump_registers_res(); //  dump at Ecall instead of at the end of the program
             exit(EXIT_SUCCESS);
             break;
         case SYSTEM_EBREAK:
@@ -488,12 +488,12 @@ void execute_instruction(uint32_t instruction) {
             break;
         }
         case OPCODE_OP: {
-            execute_r_type(funct7, funct3, rd, rs1, rs2);
+            execute_r_type(funct7,funct3, rd, rs1, rs2);
             pc += 4;
             break;
         }
         case OPCODE_SYSTEM: {
-            handle_system_call(instruction);
+            handle_system_call(instruction );
             pc += 4;
             break;
         }
@@ -502,9 +502,9 @@ void execute_instruction(uint32_t instruction) {
             exit(EXIT_FAILURE);
     }
 
-    registers_array[0] = 0; // let x0 be hardwired to 0
+    registers_array[0] = 0 ; // let x0 be hardwired to 0
 }
-// Run through all of the instructions in the memory
+// run through all  of the instructions in the memory
 void run() {
     while (pc + 3 < MEMORY_SIZE) {
         uint32_t instruction = 0;
@@ -520,13 +520,13 @@ void run() {
     printf("Program execution completed.\n");
 }
 
-// Main function
+//          Main function
 int main(int argc, char *argv[]) {
     if (argc != 2) {
-        printf("Usage: %s <binary_file>\n", argv[0]);
+        printf("Usage: %s <binary_file>\n",argv[0]);
         return EXIT_FAILURE;
     }
-//ensuring that dump_registers_res function is called in event of an abnormal termination
+//ensuring that dump_registers_res function is called in event of a weird termination
     if (atexit(dump_registers_res) != 0) {
         fprintf(stderr, "Failed to set exit function.\n");
         return EXIT_FAILURE;
