@@ -1,24 +1,6 @@
 #!/bin/bash
 
-# ---------------------------------------------------------------------------
 # Script: run_simulations.sh
-# Description:
-#   Automates the execution of the RISC-V simulator across multiple .bin files.
-#   It runs the simulator on each .bin file, renames the resulting
-#   register_dump.res file to match the .bin file, and moves all .res files
-#   into a specified output directory.
-#
-# Usage:
-#   ./run_simulations.sh [input_directory] [output_directory]
-#
-#   - input_directory: Directory containing .bin files. Defaults to "./bin_tests".
-#   - output_directory: Directory to store .res files. Defaults to "./res_outputs".
-#
-# Example:
-#   ./run_simulations.sh tests/bin_tests results/register_dumps
-# ---------------------------------------------------------------------------
-
-# Set default input and output directories
 INPUT_DIR="./bin_tests"
 OUTPUT_DIR="./res_outputs"
 
@@ -30,8 +12,6 @@ fi
 if [ $# -ge 2 ]; then
     OUTPUT_DIR="$2"
 fi
-
-# Check if the input directory exists
 if [ ! -d "$INPUT_DIR" ]; then
     echo "Error: Input directory '$INPUT_DIR' does not exist."
     exit 1

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Usage: ./compare_res_files.sh <directory1> <directory2>
+# ./compare_res_files.sh <directory1> <directory2>
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <directory1> <directory2>"

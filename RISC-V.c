@@ -78,7 +78,7 @@ int allow_misaligned = 1; // Set to 1 to allow, 0 to enforce alignment
 // Function to sign extend the value
 
 int32_t sign_extend(int32_t value, int bits) {
-    int32_t mask = 1 << (bits - 1);
+    int32_t mask= 1 << (bits - 1);
     return (value ^ mask) - mask;
 }
 // Function to initialize the registers and memory
@@ -130,7 +130,7 @@ void dump_registers_res() {
 }
 // Function to execute  R type instructions
 void execute_r_type(uint32_t funct7, uint32_t funct3, uint32_t rd, uint32_t rs1, uint32_t rs2) {
-    int32_t operand1 = registers_array[rs1];
+    int32_t operand1= registers_array[rs1];
     int32_t operand2 = registers_array[rs2];
     int32_t result = 0;
 // Switch case to check the funct3 and funct7 values and perform the operation accordingly
@@ -204,7 +204,7 @@ void execute_i_type(uint32_t funct7, uint32_t funct3, uint32_t rd, uint32_t rs1,
             result = operand1 << (imm & 0x1F);
             break;
         case FUNCT3_SLTI:
-            result = (operand1 < imm) ? 1 : 0;
+            result= (operand1 < imm) ? 1 : 0;
             break;
         case FUNCT3_SLTIU:
             result = ((uint32_t)operand1 < (uint32_t)imm) ? 1 : 0;
@@ -223,7 +223,7 @@ void execute_i_type(uint32_t funct7, uint32_t funct3, uint32_t rd, uint32_t rs1,
             }
             break;
         case FUNCT3_ORI:
-            result = operand1 | imm;
+            result= operand1 | imm;
             break;
         case FUNCT3_ANDI:
             result = operand1 & imm;
@@ -241,7 +241,7 @@ void execute_i_type(uint32_t funct7, uint32_t funct3, uint32_t rd, uint32_t rs1,
 //S type instructions
 void execute_s_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
     int32_t address = registers_array[rs1] + imm;
-    int32_t value = registers_array[rs2];
+    int32_t value= registers_array[rs2];
     int access_size = 4;
 
     switch (funct3) {
@@ -282,7 +282,7 @@ void execute_s_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
 
 void execute_b_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
     int32_t operand1 = registers_array[rs1];
-    int32_t operand2 = registers_array[rs2];
+    int32_t operand2= registers_array[rs2];
     int branch = 0;
 
     switch (funct3) {
@@ -293,7 +293,7 @@ void execute_b_type(uint32_t funct3, uint32_t rs1, uint32_t rs2, int32_t imm) {
             if (operand1 != operand2) branch = 1;
             break;
         case FUNCT3_BLT:
-            if (operand1 < operand2) branch = 1;
+            if (operand1 < operand2) branch= 1;
             break;
         case FUNCT3_BGE:
             if (operand1 >= operand2) branch = 1;
@@ -352,7 +352,7 @@ void execute_jalr(uint32_t rd, uint32_t rs1, int32_t imm) {
 // Function to handle system calls
 // This function is used to handle the system calls like ECALL and EBREAK which are used to exit the program
 void handle_system_call(uint32_t instruction) {
-    uint32_t funct = (instruction >>20) & 0xFFF;
+    uint32_t funct= (instruction >>20) & 0xFFF;
 
     switch (funct) {
         case SYSTEM_ECALL:
@@ -405,11 +405,11 @@ void execute_instruction(uint32_t instruction) {
             break;
         }
         case OPCODE_BRANCH: {
-            imm = ((instruction >> 7) & 0x1) << 11;
+            imm= ((instruction >> 7) & 0x1) << 11;
             imm |= ((instruction >> 8) & 0xF) << 1;
             imm |= ((instruction >> 25) & 0x3F) << 5;
             imm |= ((instruction >> 31) & 0x1) << 12;
-            imm = sign_extend(imm, 13);
+            imm= sign_extend(imm, 13);
             execute_b_type(funct3, rs1, rs2, imm);
             break;
         }
@@ -472,7 +472,7 @@ void execute_instruction(uint32_t instruction) {
         }
         case OPCODE_STORE: {
             int32_t imm_store = ((instruction >> 7) & 0x1F) | (((instruction >> 25) & 0x7F) << 5);
-            imm_store = sign_extend(imm_store, 12);
+            imm_store= sign_extend(imm_store, 12);
             execute_s_type(funct3, rs1, rs2, imm_store);
             pc += 4;
             break;
